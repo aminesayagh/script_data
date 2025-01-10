@@ -1,0 +1,27 @@
+{
+	"scripts": {
+		"start": "node dist/index.js",
+		"build": "node build.js",
+		"dev": "ts-node src/index.ts"
+	},
+	"main": "dist/index.js",
+	"dependencies": {
+		"@types/papaparse": "^5.3.15",
+		"esbuild": "^0.24.2",
+		"esbuild-plugin-typescript": "^2.0.0",
+		"eslint": "^9.17.0",
+		"eslint-plugin-import": "^2.31.0",
+		"fs": "0.0.1-security",
+		"globals": "^15.14.0",
+		"langdetect": "^0.2.1",
+		"papaparse": "^5.5.0",
+		"prettier": "^3.4.2",
+		"ts-node": "^10.9.2",
+		"typescript": "^5.7.3",
+		"typescript-eslint": "^8.19.1",
+		"zod": "^3.24.1"
+	},
+	"devDependencies": {
+		"@types/langdetect": "^0.2.2"
+	}
+}
