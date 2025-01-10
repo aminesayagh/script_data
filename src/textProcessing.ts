@@ -76,7 +76,23 @@ export class TextPreprocessor {
    * Removes numeric sequences
    */
   private static removeNumbers(text: string): string {
-    return text.replace(/\d+/g, "");
+    // Match numbers that:
+    // 1. Are at the start of string and followed by space
+    // 2. Have space before and after
+    // 3. Have space before and are at end of string
+    return text.replace(/(?:^\d+\s)|(?:\s\d+\s)|(?:\s\d+$)/g, ' ');
+  }
+
+  private static unCapitalize(text: string): string {
+    return text.toLowerCase();
+  }
+
+  private static removeExtraSpaces(text: string): string {
+    return text.replace(/\s+/g, " ").trim();
+  }
+
+  private static removePunctuation(text: string): string {
+    return text.replace(/[.,!?،؟]/g, "");
   }
 
   /**
@@ -92,10 +108,13 @@ export class TextPreprocessor {
     cleaned = this.removeHtmlTags(cleaned);
     cleaned = this.removeSocialTags(cleaned);
     cleaned = this.removeEmojis(cleaned);
+    cleaned = this.removePunctuation(cleaned);
     cleaned = this.removeParentheses(cleaned);
     cleaned = this.removeNumbers(cleaned);
     cleaned = this.removeSpecialChars(cleaned);
     cleaned = this.normalizeWhitespace(cleaned);
+    cleaned = this.unCapitalize(cleaned);
+    cleaned = this.removeExtraSpaces(cleaned);
 
     return cleaned;
   }
