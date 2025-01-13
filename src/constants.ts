@@ -11,6 +11,7 @@ export const CONSTANTS = {
       it: [{ targetLang: "fr" as Lang, confidence: 0.82 }],
       pt: [{ targetLang: "fr" as Lang, confidence: 0.82 }],
       de: [{ targetLang: "fr" as Lang, confidence: 0.82 }],
-      nl: [{ targetLang: "fr" as Lang, confidence: 0.82 }],
+      fi: [{ targetLang: "en" as Lang, confidence: 0.82 }],
+      nl: [{ targetLang: "en" as Lang, confidence: 0.82 }],
     }
   } as const;

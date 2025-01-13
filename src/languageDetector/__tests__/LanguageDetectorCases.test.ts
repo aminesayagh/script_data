@@ -34,6 +34,22 @@ const cases = [
     text: "Ciao mondo",
     expected: "it",
   },
+  {
+    text: "Hello 23🎂❤️",
+    expected: "en",
+  },
+  {
+    text: "hello paris",
+    expected: "en",
+  },
+  {
+    text: "bonjour man meknes",
+    expected: "unknown",
+  },
+  {
+    text: "mashalah",
+    expected: "unknown",
+  }
 ];
 describe("LanguageDetector", () => {
   cases.forEach(({ text, expected }) => {

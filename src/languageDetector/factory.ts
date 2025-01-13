@@ -10,6 +10,7 @@ export class LanguageDetectorFactory {
     const frequencyAnalyzer = new FrequencyAnalyzer(); // Strategy of frequency analysis
     const detectionStrategy = new LangDetectStrategy(
       CONSTANTS,
+      TextPreprocessor,
       frequencyAnalyzer
     ); // Strategy of lang detection
     return new LanguageDetectionService(TextPreprocessor, detectionStrategy);
@@ -17,6 +18,12 @@ export class LanguageDetectorFactory {
 }
 
 
+/**
+ * Returns a LanguageDetectionService singleton that can be used to detect the language of text.
+ *
+ * @param {string} text - The text to be analyzed for language detection.
+ * @returns {Promise<Omit<LanguageResult, "id">>} - The detected language and confidence level.
+ */
 export function languageDetector(text: string) {
     return LanguageDetectorFactory.create().detectLanguage(text);
 }

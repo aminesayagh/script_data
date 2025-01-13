@@ -22,7 +22,6 @@ export async function main() {
       .map((row) => {
         const text = row[columnName as keyof Post] || "";
         const result = languageDetector(text);
-        console.log(result);
         return { ...result, id: row.id };
       });
 
@@ -63,9 +62,14 @@ export async function main() {
     const outputPath = filePath.replace(".csv", "_output.csv");
     await fs.writeFile(outputPath, csvContent, "utf-8");
 
+    // Got the first 2000 posts and save them to a json file
+    const first2000Posts = results.slice(0, 2000);
+    await fs.writeFile("first_2000_posts.json", JSON.stringify(first2000Posts, null, 2), "utf-8");
+
     // Got the unknown posts and save them to a json file
     const unknownPosts = await Promise.all(results.map((result) => result.detectedLanguage === "unknown" ? result : null).filter((post) => post !== null));
     await fs.writeFile("unknown_posts.json", JSON.stringify(unknownPosts, null, 2), "utf-8");
+
   } catch (error) {
     console.error("Processing error:", error);
     process.exit(1);

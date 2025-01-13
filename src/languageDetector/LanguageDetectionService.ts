@@ -7,6 +7,12 @@ export class LanguageDetectionService {
     private readonly detectionStrategy: ILanguageDetectionStrategy
   ) {}
 
+  /**
+   * Detects the language of the given text.
+   *
+   * @param {string} text - The text to detect the language of.
+   * @returns {Omit<LanguageResult, "id">} The detected language and confidence level.
+   */
   public detectLanguage(text: string): Omit<LanguageResult, "id"> {
     if (!text?.trim()) {
       return { text, cleaned: "", detectedLanguage: "empty", confidence: 1 };

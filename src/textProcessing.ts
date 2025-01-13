@@ -113,9 +113,9 @@ export class TextPreprocessor {
     cleaned = this.removeSocialTags(cleaned);
     cleaned = this.removeEmojis(cleaned);
     cleaned = this.removePunctuation(cleaned);
+    cleaned = this.removeSpecialChars(cleaned);
     cleaned = this.removeParentheses(cleaned);
     cleaned = this.removeNumbers(cleaned);
-    cleaned = this.removeSpecialChars(cleaned);
     cleaned = this.normalizeWhitespace(cleaned);
     cleaned = this.unCapitalize(cleaned);
     cleaned = this.removeExtraSpaces(cleaned);
