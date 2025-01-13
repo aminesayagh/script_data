@@ -1,164 +1,285 @@
 # Code Documentation
-Generated on: 2025-01-10T12:12:19.688Z
-Total files: 2
+Generated on: 2025-01-11T16:33:28.843Z
+Total files: 7
 
 ## Project Structure
 
 ```
 └── script_data
     └── src
+        ├── constants.ts
+        ├── files.ts
         ├── index.ts
-        └── textProcessing.ts
+        ├── languageDetector.ts
+        ├── main.ts
+        ├── textProcessing.ts
+        └── types.ts
 ```
+
+## File: constants.ts
+- Path: `/root/git/script_data/src/constants.ts`
+- Size: 589.00 B
+- Extension: .ts
+- Lines of code: 14
+
+```ts
+import { Lang } from "./types";
+export const CONSTANTS = {
+NUMBER_OF_ROWS_TO_PROCESS: 100000000000000000000000,
+HIGH_CONFIDENCE_THRESHOLD: 0.8,
+MINIMUM_CONFIDENCE_THRESHOLD: 0.4,
+SUPPORTED_LANGUAGES: ["ar", "fr", "en"] as const,
+ROMANCE_LANG_MAP: {
+es: [{ targetLang: "fr" as Lang, confidence: 0.85 }],
+it: [{ targetLang: "fr" as Lang, confidence: 0.82 }],
+pt: [{ targetLang: "fr" as Lang, confidence: 0.82 }],
+de: [{ targetLang: "fr" as Lang, confidence: 0.82 }],
+nl: [{ targetLang: "fr" as Lang, confidence: 0.82 }],
+}
+} as const;
+```
+
+---------------------------------------------------------------------------
+
+## File: files.ts
+- Path: `/root/git/script_data/src/files.ts`
+- Size: 1.72 KB
+- Extension: .ts
+- Lines of code: 57
+
+```ts
+import * as fs from "fs/promises";
+import Papa from "papaparse";
+import { Post } from "./types";
+import { PostSchema } from "./types";
+import { createReadStream } from "fs";
+import { parse } from "papaparse";
+import { PipelineSource } from "stream";
+class Files {
+static processFile(
+filePath: string,
+columnName: keyof Post = "caption"
+) {
+return new Promise<{ id: string; caption: string }[]>((resolve, reject) => {
+const results: Post[] = [];
+let isFirstChunk = true;
+const readStream = createReadStream(filePath, {
+encoding: "utf-8",
+highWaterMark: 64 * 1024, // 64KB chunks
+});
+return parse(readStream, {
+header: true,
+skipEmptyLines: true,
+chunk: (chunk: Papa.ParseResult<Post>) => {
+try {
+const valid = chunk.data
+.map((row) => {
+try {
+return PostSchema.parse(row);
+} catch (error) {
+console.error("Row parsing error:", row, error);
+return null;
+}
+})
+.filter((row: Post | null): row is Post => row !== null);
+results.push(...valid);
+isFirstChunk = false;
+if (results.length > 10000) {
+readStream.pause();
+process.nextTick(() => readStream.resume());
+}
+} catch (error) {
+console.error("Parsing error:", error);
+reject(error);
+}
+},
+complete: () => {
+resolve(results);
+},
+error: (error: Error) => {
+reject(error);
+},
+});
+});
+}
+}
+export default Files;
+```
+
+---------------------------------------------------------------------------
 
 ## File: index.ts
 - Path: `/root/git/script_data/src/index.ts`
-- Size: 5.63 KB
+- Size: 96.00 B
 - Extension: .ts
-- Lines of code: 172
+- Lines of code: 4
 
 ```ts
-import { z } from "zod";
-import * as fs from "fs/promises";
+import { main as detectLanguage } from "./main";
+(async () => {
+await detectLanguage();
+})();
+```
+
+---------------------------------------------------------------------------
+
+## File: languageDetector.ts
+- Path: `/root/git/script_data/src/languageDetector.ts`
+- Size: 5.11 KB
+- Extension: .ts
+- Lines of code: 132
+
+```ts
 import { detect } from "langdetect";
 import Papa from "papaparse";
+import * as fs from "fs/promises";
+import { Post, LanguageResult, Lang } from "./types";
+import { CONSTANTS } from "./constants";
 import { TextPreprocessor } from "./textProcessing";
-const NUMBER_OF_ROWS_TO_PROCESS = 1000;
-const PostSchema = z.object({
-caption: z.string(),
-});
-type Post = z.infer<typeof PostSchema>;
-interface LanguageResult {
-text: string;
-cleaned?: string;
-detectedLanguage: string;
-confidence: number;
-}
-class LanguageDetector {
-private static SUPPORTED_LANGUAGES = ["ar", "fr", "en"];
+export class LanguageDetector {
 /**
-* Detects the dominant language of a text
-* Handles edge cases like mixed language content and short phrases
+* the most likely language and the confidence level of that detection.
+*
+* @param text - The input text to be analyzed for character frequency.
+* @returns An object containing the detected language ("ar", "fr", "en", or "unknown")
+*          and a confidence score indicating the likelihood of the detected language.
+*
+* The function calculates the ratio of Arabic, Latin, and French characters in the text.
+* - If the ratio of Arabic characters exceeds 0.5, the language is determined to be Arabic.
+* - If the ratio of Latin characters exceeds 0.5, further checks are made:
+*   - If the ratio of French characters to Latin characters is greater than 0.1, the language is
+*     determined to be French.
+*   - Otherwise, the language is determined to be English.
+* - If none of these conditions are met, the language is returned as "unknown".
 */
-static detectLanguage(text: string): LanguageResult {
+private static analyzeFrequency(text: string) {
+const arabicCount = (text.match(/[\u0600-\u06FF\u0750-\u077F]/g) || [])
+.length;
+const latinCount = (text.match(/[a-zA-Z]/g) || []).length;
+const frenchCount = (text.match(/[àâçéèêëîïôûùüÿñæœ]/g) || []).length;
+const total = text.length;
+if (!total) return { lang: "unknown", confidence: 0 };
+const arabicRatio = arabicCount / total;
+const latinRatio = latinCount / total;
+const frenchRatio = frenchCount / latinCount || 0;
+if (arabicRatio > 0.5) return { lang: "ar", confidence: arabicRatio };
+if (latinRatio > 0.5) {
+return frenchRatio > 0.1
+? { lang: "fr", confidence: latinRatio * (0.5 + frenchRatio) }
+: { lang: "en", confidence: latinRatio };
+}
+return { lang: "unknown", confidence: 0 };
+}
+static detectLanguage(text: string): Omit<LanguageResult, "id"> {
+if (!text?.trim()) {
+return { text, cleaned: "", detectedLanguage: "empty", confidence: 1 };
+}
 const cleaned = TextPreprocessor.preprocess(text);
-if (!TextPreprocessor.hasValidContent(cleaned)) {
+if (!cleaned || !TextPreprocessor.hasValidContent(cleaned)) {
 return { text, cleaned, detectedLanguage: "unknown", confidence: 0 };
 }
 try {
 const detection = detect(cleaned);
-if (!detection || detection.length === 0) {
-return { text, detectedLanguage: "unknown", confidence: 0 };
-} else if (detection.length == 1) {
+if (!detection?.length) {
+return { text, cleaned, detectedLanguage: "error", confidence: 0 };
+}
+if (
+detection.length === 1 &&
+detection[0].prob > CONSTANTS.HIGH_CONFIDENCE_THRESHOLD
+) {
 const lang = detection[0].lang;
-const prob = detection[0].prob;
-if (this.SUPPORTED_LANGUAGES.includes(lang)) {
+if (CONSTANTS.SUPPORTED_LANGUAGES.includes(lang as Lang)) {
 return {
 text,
 cleaned,
-detectedLanguage: lang,
-confidence: prob,
+detectedLanguage: lang as Lang,
+confidence: detection[0].prob,
 };
 }
 }
-const segments = TextPreprocessor.segmentText(cleaned);
 const langScores = new Map<string, number>();
+let totalLength = 0;
+const segments = TextPreprocessor.segmentText(cleaned);
 for (const segment of segments) {
-if (segment.trim().length === 0) continue;
+if (!segment.trim()) continue;
+const segmentLength = segment.length;
+totalLength += segmentLength;
 const segmentDetection = detect(segment);
-if (!segmentDetection || segmentDetection.length === 0) {
-console.warn("No language detected in segment", segment);
+if (!segmentDetection?.length) {
+const freqAnalysis = this.analyzeFrequency(segment);
+if (freqAnalysis.lang !== "unknown") {
+langScores.set(
+freqAnalysis.lang,
+(langScores.get(freqAnalysis.lang) || 0) +
+freqAnalysis.confidence * segmentLength
+);
+}
 continue;
 }
-const lang = segmentDetection[0].lang;
-const prob = segmentDetection[0].prob;
-if (this.SUPPORTED_LANGUAGES.includes(lang)) {
-const currentScore = langScores.get(lang) || 0;
-langScores.set(lang, currentScore + prob);
+for (const { lang, prob } of segmentDetection) {
+const score = (prob * Math.log(segmentLength + 1)) / Math.log(10);
+if (CONSTANTS.SUPPORTED_LANGUAGES.includes(lang as Lang)) {
+langScores.set(lang, (langScores.get(lang) || 0) + score);
+} else {
+const mappings =
+CONSTANTS.ROMANCE_LANG_MAP[
+lang as keyof typeof CONSTANTS.ROMANCE_LANG_MAP
+];
+if (mappings) {
+const mapping = mappings[0];
+return {
+text,
+cleaned,
+detectedLanguage: mapping.targetLang,
+confidence: mapping.confidence,
+};
 }
 }
-let maxLang = "unknown";
-let maxScore = 0;
+}
+}
+let bestLang = "unknown";
+let bestScore = 0;
 for (const [lang, score] of langScores.entries()) {
-if (score > maxScore) {
-maxLang = lang;
-maxScore = score;
+const normalizedScore = score / totalLength;
+if (normalizedScore > bestScore) {
+bestLang = lang;
+bestScore = normalizedScore;
 }
 }
 return {
 text,
 cleaned,
-detectedLanguage: maxLang,
-confidence: maxScore / segments.length,
+detectedLanguage:
+bestScore < CONSTANTS.MINIMUM_CONFIDENCE_THRESHOLD ? "unknown" : (bestLang as Lang),
+confidence: bestScore,
 };
-} catch (error: unknown) {
-console.error("Error detecting language", error);
-return { text, cleaned, detectedLanguage: "unknown", confidence: 0 };
+} catch (error) {
+console.error("Language detection error:", error);
+return { text, cleaned, detectedLanguage: "error", confidence: 0 };
 }
 }
-/**
-* Process a CSV file and detect languages for each description
-*/
-static async processFile(
-filePath: string,
-columnName: keyof Post
-): Promise<LanguageResult[]> {
-try {
-const fileContent = await fs.readFile(filePath, "utf-8");
-const rows = await this.parseCSV(fileContent);
-const rowsToProcess = rows.slice(0, NUMBER_OF_ROWS_TO_PROCESS);
-const results: LanguageResult[] = [];
-for (const row of rowsToProcess) {
-try {
-const text = row[columnName] || ""; // Ensure columnName is a key of Post
-const result = this.detectLanguage(text);
-results.push(result);
-} catch (error: unknown) {
-console.error(`Error processing row:`, row, error);
-results.push({
-text: row[columnName] || "",
-detectedLanguage: "error",
-confidence: 0,
-});
 }
-}
-return results;
-} catch (error: unknown) {
-console.error("Error processing file:", error);
-throw error;
-}
-}
-/**
-* Parse CSV content using Papa Parse
-*/
-private static async parseCSV(content: string): Promise<Post[]> {
-return new Promise((resolve, reject) => {
-Papa.parse(content, {
-header: true,
-skipEmptyLines: true,
-complete: (results) => {
-try {
-const validatedRows = results.data.map((row) => {
-try {
-return PostSchema.parse(row);
-} catch (error: unknown) {
-console.error("Error parsing row", row, error);
-return null;
-}
-});
-resolve(validatedRows.filter((row) => row !== null));
-} catch (error: unknown) {
-reject(error);
-}
-},
-error: (error: unknown) => {
-reject(error);
-},
-});
-});
-}
-}
-async function main() {
+```
+
+---------------------------------------------------------------------------
+
+## File: main.ts
+- Path: `/root/git/script_data/src/main.ts`
+- Size: 4.20 KB
+- Extension: .ts
+- Lines of code: 125
+
+```ts
+import { LanguageDetector } from "./languageDetector";
+import { Post } from "./types";
+import * as fs from "fs/promises";
+import { createWriteStream } from "fs";
+import Papa from "papaparse";
+import Files from "./files";
+import { CONSTANTS } from "./constants";
+import { PipelineSource, Transform } from "stream";
+import { pipeline } from "stream/promises";
+export async function main() {
 const filePath = process.argv[2];
 const columnName = process.argv[3] || "caption";
 if (!filePath) {
@@ -166,35 +287,71 @@ console.error("Please provide a file path as an argument");
 process.exit(1);
 }
 try {
-const results = await LanguageDetector.processFile(filePath, columnName as keyof Post);
-const langCounts = new Map<string, number>();
-for (const result of results) {
-const current = langCounts.get(result.detectedLanguage) || 0;
-langCounts.set(result.detectedLanguage, current + 1);
-}
-for (const [lang, count] of langCounts.entries()) {
-console.log(
-`${lang}: ${count} posts (${((count / results.length) * 100).toFixed(2)}%)`
+const stats = new Map<string, number>();
+let processedCount = 0;
+const languageDetectorStream = new Transform({
+objectMode: true,
+transform: (row, encoding, callback) => {
+const text = row[columnName as keyof Post] || "";
+const result = LanguageDetector.detectLanguage(text);
+console.log(result);
+stats.set(
+result.detectedLanguage,
+(stats.get(result.detectedLanguage) || 0) + 1
 );
+processedCount++;
+if (processedCount % 1000 === 0) {
+console.log(`Processed ${processedCount} rows`);
 }
-const outputFilePath = filePath.replace(".csv", "_output.json");
-await fs.writeFile(outputFilePath, JSON.stringify(results, null, 2), "utf-8");
-console.log(`Output written to ${outputFilePath}`);
-} catch (error: unknown) {
-console.error("Error processing file", error);
+const outputRow = {
+id: row.id || "",
+lang:
+result.detectedLanguage === "empty"
+? "0"
+: result.detectedLanguage === "unknown" ||
+result.detectedLanguage === "error"
+? ""
+: result.detectedLanguage,
+};
+callback(null, outputRow);
+},
+});
+const outputPath = filePath.replace(".csv", "_output.csv");
+const outputStream = createWriteStream(outputPath, { encoding: "utf-8" });
+outputStream.write("id,lang\n");
+const stringifier = new Transform({
+objectMode: true,
+transform(row, encoding, callback) {
+const csvLine = `${row.id},${row.lang}\n`;
+callback(null, csvLine);
+},
+});
+await pipeline(
+Files.processFile(filePath, columnName as keyof Post) as unknown as PipelineSource<any>,
+languageDetectorStream,
+stringifier,
+outputStream
+);
+stats.forEach((count, lang) => {
+console.log(
+`${lang}: ${count} posts (${((count / processedCount) * 100).toFixed(2)}%)`
+);
+});
+console.log(`Output written to ${outputPath}`);
+} catch (error) {
+console.error("Processing error:", error);
 process.exit(1);
 }
 }
-main();
 ```
 
 ---------------------------------------------------------------------------
 
 ## File: textProcessing.ts
 - Path: `/root/git/script_data/src/textProcessing.ts`
-- Size: 4.03 KB
+- Size: 4.23 KB
 - Extension: .ts
-- Lines of code: 121
+- Lines of code: 125
 
 ```ts
 export class TextPreprocessor {
@@ -264,7 +421,7 @@ return text
 * Removes numeric sequences
 */
 private static removeNumbers(text: string): string {
-return text.replace(/\d+/g, "");
+return text.replace(/(?:^\d+\s)|(?:\s\d+\s)|(?:\s\d+$)/g, ' ');
 }
 private static unCapitalize(text: string): string {
 return text.toLowerCase();
@@ -312,6 +469,32 @@ const segments = cleaned
 .filter((segment) => segment.length >= 3); // Filter out very short segments
 return segments;
 }
+}
+```
+
+---------------------------------------------------------------------------
+
+## File: types.ts
+- Path: `/root/git/script_data/src/types.ts`
+- Size: 410.00 B
+- Extension: .ts
+- Lines of code: 15
+
+```ts
+import { z } from "zod";
+export const PostSchema = z.object({
+id: z.string(),
+caption: z.string(),
+});
+export type Post = z.infer<typeof PostSchema>;
+export type Lang = "fr" | "en" | "ar";
+export type DetectedLanguage = Lang | "empty" | "unknown" | "error";
+export interface LanguageResult {
+id: string;
+text: string;
+cleaned?: string;
+detectedLanguage: DetectedLanguage;
+confidence: number;
 }
 ```
 

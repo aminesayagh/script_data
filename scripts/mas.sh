@@ -17,7 +17,7 @@ TREE_OUTPUT=$(tree -a -I 'node_modules|.git|.next|dist|.turbo|.cache|.vercel|cov
 } > docs/doc-tree.md
 
 cw doc \
-    --pattern "package.json|tsconfig.json|eslintrc.json|jest.config.js|babel.config.js|build.js" \
+    --pattern "package.json|tsconfig.json" \
     --exclude "node_modules" "dist" "docs" "src" \
     --output docs/doc-config.md \
     --compress false

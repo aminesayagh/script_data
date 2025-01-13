@@ -13,9 +13,13 @@
 |-- scripts
 |   `-- mas.sh
 |-- src
+|   |-- constants.ts
+|   |-- files.ts
 |   |-- index.ts
-|   `-- textProcessing.ts
-|-- build.js
+|   |-- languageDetector.ts
+|   |-- main.ts
+|   |-- textProcessing.ts
+|   `-- types.ts
 |-- .gitignore
 |-- package.json
 |-- pnpm-lock.yaml
@@ -23,5 +27,5 @@
 |-- run.sh
 `-- tsconfig.json
 
-4 directories, 17 files
+4 directories, 21 files
 ```
