@@ -1,7 +1,5 @@
 import { main as detectLanguage } from "./main";
 
-detectLanguage().then((result) => {
-  console.log(result);
-}).catch((error) => {
+detectLanguage().then().catch((error) => {
   console.error(error);
 });

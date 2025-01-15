@@ -35,8 +35,6 @@ export class LangDetectStrategy implements ILanguageDetectionStrategy {
         return { lang: "error", confidence: 0 };
       }
 
-      console.log("detection", detection);
-
       // Try direct detection first
       const directDetection = this.handleDirectDetection(detection);
       if (directDetection) return directDetection;
@@ -94,8 +92,6 @@ export class LangDetectStrategy implements ILanguageDetectionStrategy {
       return 1 + ((total - index) / total) * 0.5; // Front words get up to 50% more weight
     };
 
-    console.log("segments", segments);
-
     segments.forEach((segment, index) => {
       if (!segment || segment.length === 0) return;
 
@@ -108,8 +104,6 @@ export class LangDetectStrategy implements ILanguageDetectionStrategy {
       totalWeight += segment.length;
 
       const segmentDetection = detect(segment);
-
-      console.log("segmentDetection", segment, segmentDetection);
 
       if (!segmentDetection.length) {
         const charFreqScore = this.frequencyAnalyzer.analyzeText(segment);
@@ -136,7 +130,6 @@ export class LangDetectStrategy implements ILanguageDetectionStrategy {
           );
         } else {
           const remapped = this.remapRomanceLang(detection.lang);
-          console.log("remapped", segment, remapped, detection.lang);
           if (remapped) {
             const adjustedConfidence = this.calculateAdjustedConfidence(
               detection.prob,
