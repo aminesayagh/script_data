@@ -71,6 +71,16 @@ describe('TextPreprocessor', () => {
       const input = 'Hello @user check #hashtag';
       expect(TextPreprocessor.removeSocialTags(input)).toBe('Hello  check ');
     });
+
+    it('should remove french special characters', () => {
+      const input = 'éèêë àâ ôû ïî çñ';
+      expect(TextPreprocessor.removeSocialTags(input)).toBe('éèêë àâ ôû ïî çñ');
+    });
+
+    it('should remove arabic special characters', () => {
+      const input = 'مرحبا العالم';
+      expect(TextPreprocessor.removeSocialTags(input)).toBe('مرحبا العالم');
+    });
   });
 
   describe('removeSpecialChars', () => {
@@ -85,8 +95,8 @@ describe('TextPreprocessor', () => {
     });
 
     it('should preserve basic punctuation', () => {
-      const input = 'Hello, World! How?';
-      expect(TextPreprocessor.removeSpecialChars(input)).toBe('Hello, World! How?');
+      const input = 'Hello World! How to 100% of the time?';
+      expect(TextPreprocessor.removeSpecialChars(input)).toBe('Hello World How to 100 of the time');
     });
   });
 

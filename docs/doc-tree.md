@@ -13,19 +13,36 @@
 |-- scripts
 |   `-- mas.sh
 |-- src
+|   |-- languageDetector
+|   |   |-- __tests__
+|   |   |   `-- LanguageDetectorCases.test.ts
+|   |   |-- factory.ts
+|   |   |-- FrequencyAnalyzer.ts
+|   |   |-- index.ts
+|   |   |-- interface.ts
+|   |   |-- LangDetectStrategy.ts
+|   |   |-- LanguageDetectionService.ts
+|   |   `-- type.ts
+|   |-- __tests__
+|   |   `-- textProcessing.test.ts
+|   |-- utils
+|   |   `-- Files.ts
 |   |-- constants.ts
-|   |-- files.ts
 |   |-- index.ts
-|   |-- languageDetector.ts
 |   |-- main.ts
 |   |-- textProcessing.ts
 |   `-- types.ts
+|-- .vscode
+|   `-- settings.json
+|-- first_2000_posts.json
 |-- .gitignore
+|-- jest.config.js
 |-- package.json
 |-- pnpm-lock.yaml
 |-- README.md
 |-- run.sh
-`-- tsconfig.json
+|-- tsconfig.json
+`-- unknown_posts.json
 
-4 directories, 21 files
+9 directories, 33 files
 ```

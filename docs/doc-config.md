@@ -1,5 +1,5 @@
 # Code Documentation
-Generated on: 2025-01-11T16:33:22.545Z
+Generated on: 2025-01-15T09:10:31.125Z
 Total files: 2
 
 ## Project Structure
@@ -12,16 +12,19 @@ Total files: 2
 
 ## File: package.json
 - Path: `/root/git/script_data/package.json`
-- Size: 607.00 B
+- Size: 769.00 B
 - Extension: .json
-- Lines of code: 28
+- Lines of code: 34
 
 ```json
 {
 "scripts": {
 "start": "node dist/index.js",
 "build": "tsc",
-"main": "ts-node src/index.ts"
+"main": "ts-node src/index.ts",
+"test": "jest",
+"test:watch": "jest --watch",
+"test:coverage": "jest --coverage"
 },
 "main": "dist/index.js",
 "dependencies": {
@@ -42,7 +45,10 @@ Total files: 2
 "zod": "^3.24.1"
 },
 "devDependencies": {
-"@types/langdetect": "^0.2.2"
+"@types/jest": "^29.5.14",
+"@types/langdetect": "^0.2.2",
+"jest": "^29.7.0",
+"ts-jest": "^29.2.5"
 }
 }
 ```

@@ -7,4 +7,4 @@ for file in data/*.csv; do
     echo "--------------------------------"
 done
 
-pnpm install && pnpm main data/posts_202501092335.csv caption
+pnpm install && pnpm build && pnpm main data/posts_202501092335.csv caption

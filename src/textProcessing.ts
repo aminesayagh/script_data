@@ -41,7 +41,8 @@ export class TextPreprocessor {
       /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 
     // Keep basic punctuation that might be useful for sentence splitting
-    const basicPunctuation = /[.,!?،؟]/;
+    // const basicPunctuation = /[.,!?،؟]/;
+    const frenchSpecialChars = /[àâçéèêëîïôûùüÿñæœ]/;
 
     return text
       .split("")
@@ -51,10 +52,8 @@ export class TextPreprocessor {
           !!char.match(/[a-zA-Z0-9\s]/) ||
           // Arabic characters and diacritics
           arabicDiacritics.test(char) ||
-          // Basic punctuation
-          basicPunctuation.test(char) ||
           // French special characters
-          !!char.match(/[àâçéèêëîïôûùüÿñæœ]/)
+          frenchSpecialChars.test(char)
       )
       .join("");
   }

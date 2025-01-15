@@ -1,5 +1,7 @@
 import { main as detectLanguage } from "./main";
 
-(async () => {
-  await detectLanguage();
-})();
+detectLanguage().then((result) => {
+  console.log(result);
+}).catch((error) => {
+  console.error(error);
+});

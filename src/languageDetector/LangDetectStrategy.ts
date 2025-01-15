@@ -8,6 +8,17 @@ import { CONSTANTS } from "../constants";
 import { detect } from "langdetect";
 import { Lang } from "./type";
 
+interface SegmentScore {
+  length: number;
+  detection: Array<{ lang: string; prob: number }> | null;
+  frequencyScore?: { lang: string; confidence: number };
+}
+
+type WeightedScore = {
+  score: number;
+  weight: number;
+};
+
 export class LangDetectStrategy implements ILanguageDetectionStrategy {
   constructor(
     private readonly config: typeof CONSTANTS,
@@ -19,11 +30,12 @@ export class LangDetectStrategy implements ILanguageDetectionStrategy {
     try {
       const detection = detect(text);
 
-
       if (!detection?.length) {
         console.error("no detection", text);
         return { lang: "error", confidence: 0 };
       }
+
+      console.log("detection", detection);
 
       // Try direct detection first
       const directDetection = this.handleDirectDetection(detection);
@@ -42,20 +54,17 @@ export class LangDetectStrategy implements ILanguageDetectionStrategy {
   ): LanguageAnalysis | null {
     const primaryDetection = detection[0];
 
-    if (primaryDetection.prob > this.config.HIGH_CONFIDENCE_THRESHOLD) {
-      if (
-        this.config.SUPPORTED_LANGUAGES.includes(primaryDetection.lang as Lang)
-      ) {
-        return {
-          lang: primaryDetection.lang as Lang,
-          confidence: primaryDetection.prob,
-        };
-      }
-      // Check Romance language mapping
-      return this.remapRomanceLang(primaryDetection.lang);
+    if (
+      primaryDetection.prob > this.config.HIGH_CONFIDENCE_THRESHOLD &&
+      this.config.SUPPORTED_LANGUAGES.includes(primaryDetection.lang as Lang)
+    ) {
+      return {
+        lang: primaryDetection.lang as Lang,
+        confidence: primaryDetection.prob,
+      };
+    } else {
+      return null;
     }
-
-    return null;
   }
 
   private remapRomanceLang(
@@ -74,71 +83,141 @@ export class LangDetectStrategy implements ILanguageDetectionStrategy {
     return null;
   }
   private handleSegmentedAnalysis(text: string): LanguageAnalysis {
+    // Step 1: Preprocess and segment analysis
     const segments = this.textPreprocessor.segmentText(text);
-    const langScores = new Map<string, number>();
-    let totalLength = 0;
-    for (const segment of segments) {
-      if (segment.length === 0) continue;
+    const langScores = new Map<string, WeightedScore>();
+    let totalWeight = 0;
 
+    // Step 2: Calculate position weights
+    // Words at the beginning often carry more language information
+    const getPositionWeight = (index: number, total: number): number => {
+      return 1 + ((total - index) / total) * 0.5; // Front words get up to 50% more weight
+    };
+
+    console.log("segments", segments);
+
+    segments.forEach((segment, index) => {
+      if (!segment || segment.length === 0) return;
+
+      // Calculate weights
       const segmentLength = segment.length;
-      totalLength += segment.length;
+      const positionWeight = getPositionWeight(index, segments.length);
+      const lengthWeight = Math.log(segmentLength + 1) / Math.log(10);
+      const combinedWeight = positionWeight * lengthWeight;
+
+      totalWeight += segment.length;
 
       const segmentDetection = detect(segment);
-      if (!segmentDetection || !segmentDetection.length) {
+
+      console.log("segmentDetection", segment, segmentDetection);
+
+      if (!segmentDetection.length) {
         const charFreqScore = this.frequencyAnalyzer.analyzeText(segment);
         if (charFreqScore.lang !== "unknown") {
-          const currentScore = langScores.get(charFreqScore.lang) || 0;
-          langScores.set(
+          this.updateScores(
+            langScores,
             charFreqScore.lang,
-            currentScore + charFreqScore.confidence * segmentLength
+            charFreqScore.confidence * combinedWeight,
+            combinedWeight
           );
         }
-        continue;
+        return;
       }
 
-
-      const lengthWeight = Math.log(segmentLength + 1) / Math.log(10); // logarithmic scaling
-
+      // Process detections with confidence boosting for consistent results
       for (const detection of segmentDetection) {
-        const lang = detection.lang as Lang;
-        const prob = detection.prob;
-        if (this.config.SUPPORTED_LANGUAGES.includes(lang)) {
-          const score = prob * lengthWeight;
-          const currentScore = langScores.get(lang) || 0;
-          langScores.set(lang, currentScore + score);
+        if (this.config.SUPPORTED_LANGUAGES.includes(detection.lang as Lang)) {
+          // Direct language match
+          this.updateScores(
+            langScores,
+            detection.lang,
+            detection.prob * combinedWeight,
+            combinedWeight
+          );
         } else {
-          const remapped = this.remapRomanceLang(lang);
+          const remapped = this.remapRomanceLang(detection.lang);
+          console.log("remapped", segment, remapped, detection.lang);
           if (remapped) {
-            const score = prob * lengthWeight * remapped.confidence;
-            const currentScore = langScores.get(remapped.lang) || 0;
-            langScores.set(remapped.lang, currentScore + score);
+            const adjustedConfidence = this.calculateAdjustedConfidence(
+              detection.prob,
+              remapped.confidence,
+              segment
+            );
+
+            this.updateScores(
+              langScores,
+              remapped.lang,
+              adjustedConfidence * combinedWeight,
+              combinedWeight
+            );
+          } else {
+            this.updateScores(
+              langScores,
+              "unknown",
+              combinedWeight,
+              combinedWeight
+            );
           }
         }
       }
+    });
+
+    // Step 4: Normalize and find the best match
+    const { maxLang, maxConfidence } = this.findBestMatch(
+      langScores,
+      totalWeight
+    );
+
+    // Step 5: Apply confidence thresholds and return result
+    if (maxConfidence < this.config.MINIMUM_CONFIDENCE_THRESHOLD) {
+      return { lang: "unknown", confidence: maxConfidence };
     }
 
-    let maxLang = "unknown";
-    let maxScore = 0;
+    return { lang: maxLang as Lang, confidence: maxConfidence };
+  }
 
-    for (const [lang, score] of langScores.entries()) {
-      const normalizedScore = score / totalLength;
-      if (normalizedScore > maxScore) {
+  // Helper methods for better organization and reusability
+  private updateScores(
+    scores: Map<string, { score: number; weight: number }>,
+    lang: string,
+    score: number,
+    weight: number
+  ): void {
+    const current = scores.get(lang) || { score: 0, weight: 0 };
+    scores.set(lang, {
+      score: current.score + score,
+      weight: current.weight + weight,
+    });
+  }
+
+  private calculateAdjustedConfidence(
+    detectionProb: number,
+    remapConfidence: number,
+    segment: string
+  ): number {
+    // Apply penalties for mixed scripts or numbers
+    const hasMixedScripts =
+      /[a-zA-Z].*[\u0600-\u06FF]|[\u0600-\u06FF].*[a-zA-Z]/u.test(segment);
+    const confidence = detectionProb * remapConfidence;
+
+    return hasMixedScripts ? confidence * 0.8 : confidence;
+  }
+
+  private findBestMatch(
+    scores: Map<string, { score: number; weight: number }>,
+    totalWeight: number
+  ): { maxLang: string; maxConfidence: number } {
+    let maxLang = "unknown";
+    let maxConfidence = 0;
+
+    for (const [lang, { score, weight }] of scores.entries()) {
+      const normalizedConfidence = weight > 0 ? score / weight : 0;
+      if (normalizedConfidence > maxConfidence) {
         maxLang = lang;
-        maxScore = score;
+        maxConfidence = normalizedConfidence;
       }
     }
 
-    // Return unknown if confidence is too low
-    if (maxScore < this.config.MINIMUM_CONFIDENCE_THRESHOLD) {
-      return {
-        lang: "unknown",
-        confidence: maxScore,
-      };
-    }
-
-    return {
-      lang: maxLang as Lang,
-      confidence: maxScore,
-    };
+    return { maxLang, maxConfidence };
   }
 }

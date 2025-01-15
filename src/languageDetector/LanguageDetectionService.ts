@@ -25,6 +25,8 @@ export class LanguageDetectionService {
 
     const result = this.detectionStrategy.detect(cleaned);
 
+    console.log(result);
+
     return {
       text,
       cleaned,
